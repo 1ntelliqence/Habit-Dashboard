@@ -17,7 +17,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="styles.css" />
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <div id="backgroundLayer" class="background-layer"></div>
@@ -269,24 +268,25 @@
         <span id="driveStatusBadge" class="badge">Not connected</span>
       </div>
 
-      <p class="setting-note">Your dashboard data is stored in a <strong>Habit Dashboard</strong> folder in your own Google Drive. Journal text remains encrypted if Journal Security is enabled.</p>
+      <p class="setting-note">Your dashboard data is stored in the <strong>Habit Dashboard</strong> folder in your own Google Drive. The Cloudflare helper only renews Google permission so your devices can sync without repeatedly signing in.</p>
 
       <label>
-        Google OAuth Web Client ID
-        <input id="googleClientId" type="text" placeholder="123...apps.googleusercontent.com" />
+        Device access key
+        <input id="workerAccessKey" type="password" autocomplete="off" placeholder="Paste your APP_ACCESS_KEY once on this device" />
       </label>
 
       <div class="settings-actions wrap">
-        <button id="connectDriveBtn" class="primary" type="button">Connect Google Drive</button>
-        <button id="syncDriveBtn" class="secondary" type="button">Sync Now</button>
+        <button id="saveWorkerKeyBtn" class="primary" type="button">Pair This Device</button>
+        <button id="connectDriveBtn" class="secondary" type="button">Authorize Google Drive</button>
       </div>
 
       <div class="settings-actions wrap">
+        <button id="syncDriveBtn" class="secondary" type="button">Sync Now</button>
         <button id="pullDriveBtn" class="secondary" type="button">Restore from Drive</button>
         <button id="pushDriveBtn" class="secondary" type="button">Back Up to Drive</button>
       </div>
 
-      <p id="driveStatusText" class="setting-note">Add your Client ID after deploying the web app.</p>
+      <p id="driveStatusText" class="setting-note">Paste the same device access key on each of your devices once.</p>
     </div>
   </aside>
 

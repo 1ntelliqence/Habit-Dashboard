@@ -11,6 +11,7 @@ const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const DRIVE_FOLDER_NAME = "Habit Dashboard";
 const DRIVE_DATA_FILE = "habit-dashboard-data.json";
 const DRIVE_BACKUP_FOLDER = "Backups";
+const AUTH_WORKER_URL = "https://habit-dashboard-auth.tfranklinvanrossum1.workers.dev";
 
 const defaultState = {
   habits: [
@@ -40,7 +41,7 @@ const defaultState = {
 };
 
 const defaultLocalConfig = {
-  googleClientId: "",
+  workerAccessKey: "",
   driveFolderId: "",
   driveDataFileId: "",
   driveBackupFolderId: "",
@@ -63,9 +64,7 @@ let backgroundImages = [];
 let slideshowIndex = 0;
 let slideshowTimer = null;
 
-let googleTokenClient = null;
 let googleAccessToken = "";
-let pendingDriveAction = null;
 let pendingConflict = null;
 
 const $ = id => document.getElementById(id);
@@ -113,7 +112,7 @@ const vaultConfirmWrap = $("vaultConfirmWrap");
 const vaultSubmitBtn = $("vaultSubmitBtn");
 const vaultWarning = $("vaultWarning");
 
-const googleClientId = $("googleClientId");
+const workerAccessKey = $("workerAccessKey");
 const driveStatusText = $("driveStatusText");
 const driveStatusBadge = $("driveStatusBadge");
 
@@ -714,72 +713,134 @@ function applyBackground() {
 // ---------------- Google Drive ----------------
 
 function renderDriveControls() {
-  googleClientId.value = localConfig.googleClientId || "";
+  workerAccessKey.value = localConfig.workerAccessKey || "";
 
-  if (googleAccessToken) {
-    driveStatusBadge.textContent = "Connected";
+  if (!localConfig.workerAccessKey) {
+    driveStatusBadge.textContent = "Device not paired";
+    driveStatusBadge.classList.remove("good");
+    driveStatusText.textContent = "Paste your APP_ACCESS_KEY once on this device, then tap Pair This Device.";
+  } else if (googleAccessToken) {
+    driveStatusBadge.textContent = "Ready";
     driveStatusBadge.classList.add("good");
   } else {
-    driveStatusBadge.textContent = localConfig.hasEverSynced ? "Reconnect to sync" : "Not connected";
-    driveStatusBadge.classList.remove("good");
-  }
+    driveStatusBadge.textContent = localConfig.hasEverSynced ? "Paired" : "Paired · checking Drive";
+    driveStatusBadge.classList.add("good");
 
-  if (localConfig.lastSyncedContentAt) {
-    const d = new Date(localConfig.lastSyncedContentAt);
-    driveStatusText.textContent = `Last synced copy: ${d.toLocaleString()}`;
-  } else if (!localConfig.googleClientId) {
-    driveStatusText.textContent = "Add your Client ID after deploying the web app.";
-  } else {
-    driveStatusText.textContent = "Client ID saved. Connect Google Drive to create or find your Habit Dashboard folder.";
-  }
-
-  $("driveQuickBtn").textContent = googleAccessToken ? "Drive ✓" : "Drive";
-}
-
-function setDriveStatus(message) {
-  driveStatusText.textContent = message;
-}
-
-function ensureGoogleLibrary() {
-  return new Promise((resolve, reject) => {
-    const start = Date.now();
-    const timer = setInterval(() => {
-      if (window.google?.accounts?.oauth2) {
-        clearInterval(timer);
-        resolve();
-      } else if (Date.now() - start > 12000) {
-        clearInterval(timer);
-        reject(new Error("Google sign-in library did not load. Check your internet connection."));
-      }
-    }, 100);
-  });
-}
-
-async function initGoogleTokenClient() {
-  if (!localConfig.googleClientId) throw new Error("Add a Google OAuth Web Client ID first.");
-  await ensureGoogleLibrary();
-
-  googleTokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: localConfig.googleClientId,
-    scope: DRIVE_SCOPE,
-    callback: tokenResponse => {
-      if (tokenResponse.error) {
-        setDriveStatus(`Google authorization failed: ${tokenResponse.error}`);
-        return;
-      }
-      googleAccessToken = tokenResponse.access_token;
-      renderDriveControls();
-      const action = pendingDriveAction;
-      pendingDriveAction = null;
-      if (action) action().catch(handleDriveError);
+    if (localConfig.lastSyncedContentAt) {
+      const d = new Date(localConfig.lastSyncedContentAt);
+      driveStatusText.textContent = `Last synced copy: ${d.toLocaleString()}`;
+    } else {
+      driveStatusText.textContent = "Device paired. Sync will renew Google Drive access automatically.";
     }
-  });
+  }
+
+  $("driveQuickBtn").textContent = localConfig.workerAccessKey ? "Drive ✓" : "Drive";
 }
 
-async function requestDriveAccess(action = null) {
-  pendingDriveAction = action;
-  if (!googleTokenClient) await initGoogleTokenClient();
-  googleTokenClient.requestAccessToken({ prompt: googleAccessToken ? "" : "consent" });
+function workerHeaders() {
+  if (!localConfig.workerAccessKey) {
+    throw new Error("Pair this device first by saving your APP_ACCESS_KEY.");
+  }
+  return {
+    "Content-Type": "application/json",
+    "X-App-Key": localConfig.workerAccessKey
+  };
+}
+
+async function workerRequest(path, options = {}) {
+  const headers = {
+    ...workerHeaders(),
+    ...(options.headers || {})
+  };
+
+  const res = await fetch(`${AUTH_WORKER_URL}${path}`, {
+    ...options,
+    headers
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {}
+
+  if (!res.ok) {
+    if (res.status === 401 && data?.error === "unauthorized") {
+      throw new Error("That device access key is not correct.");
+    }
+    throw new Error(data?.message || data?.error || `Auth helper error (${res.status}).`);
+  }
+
+  return data;
+}
+
+async function checkWorkerStatus() {
+  return workerRequest("/status", { method: "GET" });
+}
+
+async function getWorkerAccessToken() {
+  const data = await workerRequest("/token", {
+    method: "POST",
+    body: "{}"
+  });
+
+  if (!data?.access_token) {
+    throw new Error("The auth helper did not return a Google access token.");
+  }
+
+  googleAccessToken = data.access_token;
+  renderDriveControls();
+  return googleAccessToken;
+}
+
+async function ensureDriveToken() {
+  if (googleAccessToken) return googleAccessToken;
+  return getWorkerAccessToken();
+}
+
+async function authorizeGoogleDrive() {
+  const status = await checkWorkerStatus();
+
+  if (status.connected) {
+    setDriveStatus("Google Drive is already authorized. Syncing...");
+    await getWorkerAccessToken();
+    await smartSync();
+    return;
+  }
+
+  const data = await workerRequest("/oauth/start", {
+    method: "POST",
+    body: "{}"
+  });
+
+  if (!data?.authUrl) throw new Error("Could not start Google authorization.");
+  location.href = data.authUrl;
+}
+
+async function pairThisDevice() {
+  const key = workerAccessKey.value.trim();
+  if (!key) throw new Error("Paste your APP_ACCESS_KEY first.");
+
+  localConfig.workerAccessKey = key;
+  googleAccessToken = "";
+  saveLocalConfig();
+
+  try {
+    const status = await checkWorkerStatus();
+    renderDriveControls();
+
+    if (status.connected) {
+      setDriveStatus("Device paired. Google Drive is already authorized — syncing now...");
+      await getWorkerAccessToken();
+      await smartSync();
+    } else {
+      setDriveStatus("Device paired. Tap Authorize Google Drive once to finish the initial setup.");
+    }
+  } catch (error) {
+    localConfig.workerAccessKey = "";
+    saveLocalConfig();
+    renderDriveControls();
+    throw error;
+  }
 }
 
 function handleDriveError(error) {
@@ -787,18 +848,18 @@ function handleDriveError(error) {
   setDriveStatus(error?.message || "Drive sync failed.");
 }
 
-async function driveFetch(url, options = {}) {
-  if (!googleAccessToken) throw new Error("Connect Google Drive first.");
+async function driveFetch(url, options = {}, retry = true) {
+  await ensureDriveToken();
 
   const headers = new Headers(options.headers || {});
   headers.set("Authorization", `Bearer ${googleAccessToken}`);
 
   const res = await fetch(url, { ...options, headers });
 
-  if (res.status === 401) {
+  if (res.status === 401 && retry) {
     googleAccessToken = "";
-    renderDriveControls();
-    throw new Error("Google access expired. Tap Connect Google Drive again.");
+    await getWorkerAccessToken();
+    return driveFetch(url, options, false);
   }
 
   if (!res.ok) {
@@ -1406,17 +1467,24 @@ themeToggle.addEventListener("click", () => {
 $("settingsBtn").addEventListener("click", () => {
   settingsPanel.classList.add("open");
   settingsPanel.setAttribute("aria-hidden", "false");
+  document.body.classList.add("settings-open");
 });
 
 $("closeSettingsBtn").addEventListener("click", () => {
   settingsPanel.classList.remove("open");
   settingsPanel.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("settings-open");
 });
 
 $("driveQuickBtn").addEventListener("click", () => {
   settingsPanel.classList.add("open");
   settingsPanel.setAttribute("aria-hidden", "false");
-  setTimeout(() => $("googleClientId").scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+  document.body.classList.add("settings-open");
+  settingsPanel.scrollTop = 0;
+  setTimeout(() => {
+    const driveSection = $("workerAccessKey");
+    if (driveSection) driveSection.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 50);
 });
 
 document.querySelectorAll("#backgroundModeControl button").forEach(btn => {
@@ -1470,38 +1538,65 @@ $("clearImagesBtn").addEventListener("click", async () => {
   await refreshImages();
 });
 
-// Google config / actions
-googleClientId.addEventListener("change", () => {
-  localConfig.googleClientId = googleClientId.value.trim();
-  googleTokenClient = null;
-  googleAccessToken = "";
-  saveLocalConfig();
-  renderDriveControls();
+// Cloudflare auth helper / Google Drive actions
+$("saveWorkerKeyBtn").addEventListener("click", () => {
+  pairThisDevice().catch(handleDriveError);
+});
+
+workerAccessKey.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    pairThisDevice().catch(handleDriveError);
+  }
 });
 
 $("connectDriveBtn").addEventListener("click", () => {
-  requestDriveAccess(() => smartSync()).catch(handleDriveError);
+  authorizeGoogleDrive().catch(handleDriveError);
 });
 
-$("syncDriveBtn").addEventListener("click", () => {
-  if (googleAccessToken) smartSync().catch(handleDriveError);
-  else requestDriveAccess(() => smartSync()).catch(handleDriveError);
+$("syncDriveBtn").addEventListener("click", async () => {
+  try {
+    await getWorkerAccessToken();
+    await smartSync();
+  } catch (error) {
+    handleDriveError(error);
+  }
 });
 
-$("pullDriveBtn").addEventListener("click", () => {
-  if (googleAccessToken) restoreFromDrive().catch(handleDriveError);
-  else requestDriveAccess(() => restoreFromDrive()).catch(handleDriveError);
+$("pullDriveBtn").addEventListener("click", async () => {
+  try {
+    await getWorkerAccessToken();
+    await restoreFromDrive();
+  } catch (error) {
+    handleDriveError(error);
+  }
 });
 
-$("pushDriveBtn").addEventListener("click", () => {
-  const go = async () => {
+$("pushDriveBtn").addEventListener("click", async () => {
+  try {
+    await getWorkerAccessToken();
     const okay = confirm("Back up this device's current dashboard to Google Drive? Any existing Drive copy is preserved in the Backups folder first.");
     if (okay) await uploadLocalToDrive({ backupRemote: true });
-  };
-
-  if (googleAccessToken) go().catch(handleDriveError);
-  else requestDriveAccess(() => go()).catch(handleDriveError);
+  } catch (error) {
+    handleDriveError(error);
+  }
 });
+
+// If Google just redirected back after the one-time authorization,
+// clean the URL and immediately sync.
+if (new URLSearchParams(location.search).get("google") === "connected") {
+  history.replaceState({}, "", location.pathname);
+  setTimeout(async () => {
+    try {
+      if (localConfig.workerAccessKey) {
+        await getWorkerAccessToken();
+        await smartSync();
+      }
+    } catch (error) {
+      handleDriveError(error);
+    }
+  }, 500);
+}
 
 // Conflict
 $("useDriveBtn").addEventListener("click", async () => {
@@ -1568,3 +1663,11 @@ window.addEventListener("beforeunload", () => {
 initJournalMemory();
 render();
 refreshImages().catch(() => applyBackground());
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && settingsPanel.classList.contains("open")) {
+    settingsPanel.classList.remove("open");
+    settingsPanel.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("settings-open");
+  }
+});

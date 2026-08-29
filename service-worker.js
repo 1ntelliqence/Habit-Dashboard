@@ -1,5 +1,5 @@
 
-const CACHE = "habit-dashboard-v4-1-shell";
+const CACHE = "habit-dashboard-v5-worker-sync";
 const CORE = [
   "./",
   "./index.html",
