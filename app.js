@@ -737,6 +737,10 @@ function renderDriveControls() {
   $("driveQuickBtn").textContent = localConfig.workerAccessKey ? "Drive ✓" : "Drive";
 }
 
+function setDriveStatus(message) {
+  driveStatusText.textContent = message;
+}
+
 function workerHeaders() {
   if (!localConfig.workerAccessKey) {
     throw new Error("Pair this device first by saving your APP_ACCESS_KEY.");
@@ -798,19 +802,11 @@ async function ensureDriveToken() {
 }
 
 async function authorizeGoogleDrive() {
-  // Open a blank window immediately from the user's tap. This is more reliable
-  // for installed iPhone PWAs and mobile browsers than navigating only after an async fetch.
-  let authWindow = null;
-  try {
-    authWindow = window.open("about:blank", "_blank");
-  } catch {}
-
   try {
     setDriveStatus("Starting Google authorization...");
     const status = await checkWorkerStatus();
 
     if (status.connected) {
-      if (authWindow && !authWindow.closed) authWindow.close();
       setDriveStatus("Google Drive is already authorized. Syncing...");
       await getWorkerAccessToken();
       await smartSync();
@@ -824,14 +820,11 @@ async function authorizeGoogleDrive() {
 
     if (!data?.authUrl) throw new Error("Could not start Google authorization.");
 
+    // Stay in the SAME app window. This is important on iPhone installed PWAs:
+    // Safari and the standalone PWA can use different storage contexts.
     setDriveStatus("Opening Google...");
-    if (authWindow && !authWindow.closed) {
-      authWindow.location.href = data.authUrl;
-    } else {
-      window.location.assign(data.authUrl);
-    }
+    window.location.assign(data.authUrl);
   } catch (error) {
-    if (authWindow && !authWindow.closed) authWindow.close();
     setDriveStatus(error?.message || "Could not start Google authorization.");
     alert(error?.message || "Could not start Google authorization.");
     throw error;
