@@ -798,22 +798,44 @@ async function ensureDriveToken() {
 }
 
 async function authorizeGoogleDrive() {
-  const status = await checkWorkerStatus();
+  // Open a blank window immediately from the user's tap. This is more reliable
+  // for installed iPhone PWAs and mobile browsers than navigating only after an async fetch.
+  let authWindow = null;
+  try {
+    authWindow = window.open("about:blank", "_blank");
+  } catch {}
 
-  if (status.connected) {
-    setDriveStatus("Google Drive is already authorized. Syncing...");
-    await getWorkerAccessToken();
-    await smartSync();
-    return;
+  try {
+    setDriveStatus("Starting Google authorization...");
+    const status = await checkWorkerStatus();
+
+    if (status.connected) {
+      if (authWindow && !authWindow.closed) authWindow.close();
+      setDriveStatus("Google Drive is already authorized. Syncing...");
+      await getWorkerAccessToken();
+      await smartSync();
+      return;
+    }
+
+    const data = await workerRequest("/oauth/start", {
+      method: "POST",
+      body: "{}"
+    });
+
+    if (!data?.authUrl) throw new Error("Could not start Google authorization.");
+
+    setDriveStatus("Opening Google...");
+    if (authWindow && !authWindow.closed) {
+      authWindow.location.href = data.authUrl;
+    } else {
+      window.location.assign(data.authUrl);
+    }
+  } catch (error) {
+    if (authWindow && !authWindow.closed) authWindow.close();
+    setDriveStatus(error?.message || "Could not start Google authorization.");
+    alert(error?.message || "Could not start Google authorization.");
+    throw error;
   }
-
-  const data = await workerRequest("/oauth/start", {
-    method: "POST",
-    body: "{}"
-  });
-
-  if (!data?.authUrl) throw new Error("Could not start Google authorization.");
-  location.href = data.authUrl;
 }
 
 async function pairThisDevice() {
