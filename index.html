@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1627" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Habits" />
+  <title>Habit Dashboard</title>
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <div id="backgroundLayer" class="background-layer"></div>
+  <div id="backgroundOverlay" class="background-overlay"></div>
+
+  <header class="topbar app-layer">
+    <div>
+      <h1>habit dashboard</h1>
+      <p id="todayLabel"></p>
+    </div>
+
+    <div class="header-actions">
+      <button id="driveQuickBtn" class="secondary" title="Google Drive sync">Drive</button>
+      <button id="settingsBtn" class="secondary">Customize</button>
+      <button id="themeToggle" class="icon-btn" title="Toggle dark mode">☾</button>
+      <button id="exportBtn" class="secondary">Export</button>
+      <label class="secondary file-label">
+        Import
+        <input id="importInput" type="file" accept=".json" hidden />
+      </label>
+    </div>
+  </header>
+
+  <main class="app-layer dashboard">
+    <section class="toolbar">
+      <div class="nav">
+        <button id="prevBtn" class="icon-btn" aria-label="Previous days">‹</button>
+        <button id="todayBtn" class="secondary">Today</button>
+        <button id="nextBtn" class="icon-btn" aria-label="Next days">›</button>
+      </div>
+
+      <button id="addHabitBtn" class="primary">+ New Habit</button>
+    </section>
+
+    <section class="tracker-wrap">
+      <div id="tracker" class="tracker"></div>
+    </section>
+
+    <section class="below-grid">
+      <article class="journal-card surface">
+        <div class="section-heading">
+          <div>
+            <div class="title-with-badge">
+              <h2>Journal</h2>
+              <span id="vaultBadge" class="badge">Local</span>
+            </div>
+            <p>One page per day, saved automatically.</p>
+          </div>
+          <div class="journal-date-nav">
+            <button id="journalPrev" class="icon-btn small">‹</button>
+            <button id="journalToday" class="secondary compact">Today</button>
+            <button id="journalNext" class="icon-btn small">›</button>
+          </div>
+        </div>
+
+        <div class="journal-meta">
+          <strong id="journalDateLabel"></strong>
+          <span id="journalSavedState">Saved</span>
+        </div>
+
+        <div id="journalLocked" class="journal-locked hidden">
+          <div class="lock-mark">⌁</div>
+          <h3>Journal locked</h3>
+          <p>Your journal is encrypted on this device and in Drive.</p>
+          <button id="unlockJournalBtn" class="primary">Unlock Journal</button>
+        </div>
+
+        <textarea id="journalText" class="journal-text" placeholder="Write whatever is on your mind..."></textarea>
+      </article>
+
+      <section class="lists-section">
+        <div class="section-heading">
+          <div>
+            <h2>Lists</h2>
+            <p>Make as many checklists as you want.</p>
+          </div>
+          <button id="newListBtn" class="primary">+ New List</button>
+        </div>
+        <div id="listsGrid" class="lists-grid"></div>
+      </section>
+    </section>
+  </main>
+
+  <!-- Habit -->
+  <dialog id="habitDialog">
+    <form id="habitForm">
+      <h2 id="dialogTitle">New Habit</h2>
+      <label>
+        Habit name
+        <input id="habitName" maxlength="80" required placeholder="e.g. Study Korean for 15 min" />
+      </label>
+      <label>
+        Habit color
+        <input id="habitColor" type="color" value="#22c55e" />
+      </label>
+      <div class="dialog-actions">
+        <button type="button" id="cancelHabitBtn" class="secondary">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Day note -->
+  <dialog id="dayNoteDialog">
+    <form id="dayNoteForm">
+      <div class="note-dialog-head">
+        <div>
+          <h2>Day Note</h2>
+          <p id="dayNoteDate"></p>
+        </div>
+        <button id="closeDayNoteBtn" type="button" class="icon-btn">×</button>
+      </div>
+      <textarea id="dayNoteText" class="note-text" placeholder="Anything notable about this day?"></textarea>
+      <div class="dialog-actions">
+        <button type="button" id="deleteDayNoteBtn" class="secondary danger-text">Clear note</button>
+        <button type="submit" class="primary">Save note</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- List -->
+  <dialog id="listDialog">
+    <form id="listForm">
+      <h2>New List</h2>
+      <label>
+        List name
+        <input id="listName" maxlength="60" required placeholder="e.g. Errands" />
+      </label>
+      <div class="dialog-actions">
+        <button type="button" id="cancelListBtn" class="secondary">Cancel</button>
+        <button type="submit" class="primary">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Vault setup/unlock -->
+  <dialog id="vaultDialog">
+    <form id="vaultForm">
+      <div class="note-dialog-head">
+        <div>
+          <h2 id="vaultDialogTitle">Secure Journal</h2>
+          <p id="vaultDialogSubtitle">Your password never leaves this device.</p>
+        </div>
+        <button id="closeVaultBtn" type="button" class="icon-btn">×</button>
+      </div>
+
+      <label>
+        Password
+        <input id="vaultPassword" type="password" minlength="8" autocomplete="current-password" required />
+      </label>
+
+      <label id="vaultConfirmWrap">
+        Confirm password
+        <input id="vaultPasswordConfirm" type="password" minlength="8" autocomplete="new-password" />
+      </label>
+
+      <p id="vaultWarning" class="warning-note"></p>
+
+      <div class="dialog-actions">
+        <button type="submit" id="vaultSubmitBtn" class="primary">Enable encryption</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Drive conflict -->
+  <dialog id="conflictDialog">
+    <div class="dialog-stack">
+      <h2>Sync conflict</h2>
+      <p>Both this device and Google Drive changed since the last sync. Choose which copy to keep. The overwritten Drive copy is backed up first.</p>
+      <div class="conflict-actions">
+        <button id="useDriveBtn" class="secondary">Use Drive copy</button>
+        <button id="useDeviceBtn" class="primary">Use this device</button>
+      </div>
+      <button id="cancelConflictBtn" class="secondary">Cancel</button>
+    </div>
+  </dialog>
+
+  <!-- Settings -->
+  <aside id="settingsPanel" class="settings-panel" aria-hidden="true">
+    <div class="settings-head">
+      <div>
+        <h2>Customize</h2>
+        <p>Appearance, security, and sync.</p>
+      </div>
+      <button id="closeSettingsBtn" class="icon-btn" aria-label="Close settings">×</button>
+    </div>
+
+    <div class="setting-group">
+      <h3>Background</h3>
+      <div class="segmented" id="backgroundModeControl">
+        <button data-mode="color">Color</button>
+        <button data-mode="image">Image</button>
+        <button data-mode="slideshow">Slideshow</button>
+      </div>
+
+      <label>
+        Background color
+        <input id="backgroundColor" type="color" value="#0f1b2d" />
+      </label>
+
+      <label>
+        Background images
+        <input id="backgroundImages" type="file" accept="image/*" multiple />
+      </label>
+
+      <div id="imageSummary" class="image-summary">No images uploaded.</div>
+
+      <label>
+        Slideshow speed
+        <select id="slideshowSeconds">
+          <option value="10">10 seconds</option>
+          <option value="20">20 seconds</option>
+          <option value="30" selected>30 seconds</option>
+          <option value="60">1 minute</option>
+          <option value="300">5 minutes</option>
+        </select>
+      </label>
+
+      <label>
+        Image dimming
+        <div class="range-row">
+          <input id="overlayOpacity" type="range" min="0" max="80" value="28" />
+          <span id="overlayValue">28%</span>
+        </div>
+      </label>
+
+      <div class="settings-actions">
+        <button id="clearImagesBtn" class="secondary" type="button">Clear images</button>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-title-row">
+        <h3>Journal Security</h3>
+        <span id="vaultStatusBadge" class="badge">Off</span>
+      </div>
+      <p class="setting-note">AES-GCM encryption happens in your browser before the journal is stored locally or uploaded to Drive.</p>
+      <div class="settings-actions wrap">
+        <button id="enableVaultBtn" class="primary" type="button">Set Journal Password</button>
+        <button id="lockVaultBtn" class="secondary hidden" type="button">Lock Now</button>
+        <button id="removeVaultBtn" class="secondary hidden" type="button">Remove Encryption</button>
+      </div>
+      <p class="warning-note">If you forget the journal password, the encrypted journal cannot be recovered. Keep the password somewhere safe.</p>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-title-row">
+        <h3>Google Drive Sync</h3>
+        <span id="driveStatusBadge" class="badge">Not connected</span>
+      </div>
+
+      <p class="setting-note">Your dashboard data is stored in a <strong>Habit Dashboard</strong> folder in your own Google Drive. Journal text remains encrypted if Journal Security is enabled.</p>
+
+      <label>
+        Google OAuth Web Client ID
+        <input id="googleClientId" type="text" placeholder="123...apps.googleusercontent.com" />
+      </label>
+
+      <div class="settings-actions wrap">
+        <button id="connectDriveBtn" class="primary" type="button">Connect Google Drive</button>
+        <button id="syncDriveBtn" class="secondary" type="button">Sync Now</button>
+      </div>
+
+      <div class="settings-actions wrap">
+        <button id="pullDriveBtn" class="secondary" type="button">Restore from Drive</button>
+        <button id="pushDriveBtn" class="secondary" type="button">Back Up to Drive</button>
+      </div>
+
+      <p id="driveStatusText" class="setting-note">Add your Client ID after deploying the web app.</p>
+    </div>
+  </aside>
+
+  <script src="app.js"></script>
+</body>
+</html>
