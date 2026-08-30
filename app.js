@@ -15,9 +15,9 @@ const AUTH_WORKER_URL = "https://habit-dashboard-auth.tfranklinvanrossum1.worker
 
 const defaultState = {
   habits: [
-    { id: crypto.randomUUID(), name: "At least 10 Minutes of Motion", color: "#22c55e", completions: {} },
-    { id: crypto.randomUUID(), name: "Leave The House for 20 Mins", color: "#10b981", completions: {} },
-    { id: crypto.randomUUID(), name: "Study Korean for 15 Mins", color: "#14b8a6", completions: {} }
+    { id: crypto.randomUUID(), name: "At least 10 Minutes of Motion", color: "#22c55e", labelBackground: "#ffffff", labelTextColor: "#171717", completions: {} },
+    { id: crypto.randomUUID(), name: "Leave The House for 20 Mins", color: "#10b981", labelBackground: "#ffffff", labelTextColor: "#171717", completions: {} },
+    { id: crypto.randomUUID(), name: "Study Korean for 15 Mins", color: "#14b8a6", labelBackground: "#ffffff", labelTextColor: "#171717", completions: {} }
   ],
   theme: "dark",
   offset: 0,
@@ -25,16 +25,21 @@ const defaultState = {
     backgroundMode: "color",
     backgroundColor: "#0f1b2d",
     overlayOpacity: 28,
-    slideshowSeconds: 30
+    slideshowSeconds: 30,
+    lightTextColor: "#171717",
+    lightPanelColor: "#ffffff",
+    darkTextColor: "#f3f7ff",
+    darkPanelColor: "#111f34"
   },
   dayNotes: {},
+  dayStats: {},
   lists: [],
   journal: {
     encrypted: false,
     entries: {}
   },
   meta: {
-    schemaVersion: 4,
+    schemaVersion: 6,
     updatedAt: new Date().toISOString(),
     createdAt: new Date().toISOString()
   }
@@ -54,6 +59,7 @@ let localConfig = loadLocalConfig();
 
 let editingHabitId = null;
 let editingNoteDate = null;
+let editingDayStatsDraft = [];
 let journalDate = new Date();
 let journalSaveTimer = null;
 
@@ -76,6 +82,8 @@ const habitDialog = $("habitDialog");
 const habitForm = $("habitForm");
 const habitName = $("habitName");
 const habitColor = $("habitColor");
+const habitLabelBackground = $("habitLabelBackground");
+const habitTextColor = $("habitTextColor");
 const dialogTitle = $("dialogTitle");
 
 const settingsPanel = $("settingsPanel");
@@ -87,10 +95,15 @@ const slideshowSeconds = $("slideshowSeconds");
 const overlayOpacity = $("overlayOpacity");
 const overlayValue = $("overlayValue");
 const imageSummary = $("imageSummary");
+const lightTextColor = $("lightTextColor");
+const lightPanelColor = $("lightPanelColor");
+const darkTextColor = $("darkTextColor");
+const darkPanelColor = $("darkPanelColor");
 
 const dayNoteDialog = $("dayNoteDialog");
 const dayNoteText = $("dayNoteText");
 const dayNoteDate = $("dayNoteDate");
+const dayStatsList = $("dayStatsList");
 
 const journalText = $("journalText");
 const journalDateLabel = $("journalDateLabel");
@@ -153,12 +166,21 @@ function mergeDefaults(saved) {
       ...(saved?.appearance || {})
     },
     dayNotes: saved?.dayNotes || {},
+    dayStats: saved?.dayStats || {},
+    habits: Array.isArray(saved?.habits)
+      ? saved.habits.map(habit => ({
+          ...habit,
+          labelBackground: habit.labelBackground || "#ffffff",
+          labelTextColor: habit.labelTextColor || "#171717",
+          completions: habit.completions || {}
+        }))
+      : base.habits,
     lists: Array.isArray(saved?.lists) ? saved.lists : [],
     journal: normalizeJournal(saved),
     meta: {
       ...base.meta,
       ...(saved?.meta || {}),
-      schemaVersion: 4
+      schemaVersion: 6
     }
   };
   delete merged.journalEntries;
@@ -271,15 +293,24 @@ function intensityFor(habit, date) {
   return Math.min(0.22 + (streak - 1) * 0.075, 0.9);
 }
 
-function statCell(label, value, header = false) {
+function hasDayDetails(dateKey) {
+  const hasNote = !!(state.dayNotes[dateKey] && state.dayNotes[dateKey].trim());
+  const hasStats = Array.isArray(state.dayStats?.[dateKey]) &&
+    state.dayStats[dateKey].some(stat => String(stat.label || "").trim() || String(stat.value || "").trim());
+  return hasNote || hasStats;
+}
+
+function statCell(label, value, header = false, statType = "") {
   const el = document.createElement("div");
-  el.className = `cell ${header ? "stats-head" : "stats-cell"}`;
+  const typeClass = statType ? ` stat-${statType}` : "";
+  el.className = `cell ${header ? "stats-head" : "stats-cell"}${typeClass}`;
   el.innerHTML = header ? label : `<strong>${value}</strong>`;
   return el;
 }
 
 function render() {
   document.documentElement.dataset.theme = state.theme;
+  applyInterfaceColors();
   themeToggle.textContent = state.theme === "dark" ? "☀" : "☾";
   todayLabel.textContent = new Intl.DateTimeFormat(undefined, {
     weekday: "long", month: "long", day: "numeric"
@@ -307,7 +338,7 @@ function renderTracker() {
   }
 
   const firstHead = document.createElement("div");
-  firstHead.className = "cell habit-head";
+  firstHead.className = "cell habit-head sticky-habit";
   firstHead.innerHTML = `<span class="habit-title">Habits</span>`;
   tracker.appendChild(firstHead);
 
@@ -316,29 +347,32 @@ function renderTracker() {
   dates.forEach(date => {
     const key = isoDate(date);
     const el = document.createElement("div");
-    el.className = "cell date-head" + (key === todayISO ? " today" : "");
-    const hasNote = !!(state.dayNotes[key] && state.dayNotes[key].trim());
+    el.className = "cell date-head day-detail-trigger" + (key === todayISO ? " today" : "");
+    el.dataset.dayDetail = key;
+    const hasDetails = hasDayDetails(key);
     el.innerHTML = `
       <span>${date.toLocaleDateString(undefined, {month:"short"})}</span>
       <strong>${date.getDate()}</strong>
       <span>${date.toLocaleDateString(undefined, {weekday:"short"})}</span>
-      <button class="note-toggle ${hasNote ? "has-note" : ""}" data-note-date="${key}" title="${hasNote ? "Edit note" : "Add note"}">${hasNote ? "●" : "＋"}</button>
+      <button class="note-toggle ${hasDetails ? "has-note" : ""}" data-note-date="${key}" title="${hasDetails ? "Edit day details" : "Add day details"}">${hasDetails ? "●" : "＋"}</button>
     `;
     tracker.appendChild(el);
   });
 
-  tracker.appendChild(statCell("Current<br>streak", null, true));
-  tracker.appendChild(statCell("Longest<br>streak", null, true));
-  tracker.appendChild(statCell("Total<br>count", null, true));
+  tracker.appendChild(statCell("Current<br>streak", null, true, "current"));
+  tracker.appendChild(statCell("Longest<br>streak", null, true, "longest"));
+  tracker.appendChild(statCell("Total<br>count", null, true, "total"));
 
   state.habits.forEach(habit => {
     const head = document.createElement("div");
-    head.className = "cell habit-head";
+    head.className = "cell habit-head sticky-habit";
+    head.style.background = habit.labelBackground || "#ffffff";
+    head.style.color = habit.labelTextColor || "#171717";
     head.innerHTML = `
       <span class="habit-title">${escapeHTML(habit.name)}</span>
       <span class="row-actions">
-        <button data-edit="${habit.id}" title="Edit">✎</button>
-        <button data-delete="${habit.id}" title="Delete">×</button>
+        <button data-edit="${habit.id}" title="Edit" style="color:${habit.labelTextColor || "#171717"}">✎</button>
+        <button data-delete="${habit.id}" title="Delete" style="color:${habit.labelTextColor || "#171717"}">×</button>
       </span>
     `;
     tracker.appendChild(head);
@@ -356,9 +390,9 @@ function renderTracker() {
       tracker.appendChild(cell);
     });
 
-    tracker.appendChild(statCell("", currentStreak(habit)));
-    tracker.appendChild(statCell("", longestStreak(habit)));
-    tracker.appendChild(statCell("", totalCount(habit)));
+    tracker.appendChild(statCell("", currentStreak(habit), false, "current"));
+    tracker.appendChild(statCell("", longestStreak(habit), false, "longest"));
+    tracker.appendChild(statCell("", totalCount(habit), false, "total"));
   });
 }
 
@@ -564,6 +598,7 @@ function renderLists() {
 
     const itemsHTML = list.items.map(item => `
       <div class="list-item ${item.done ? "done" : ""}" data-item-id="${item.id}">
+        <button class="drag-handle" type="button" data-action="drag-item" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</button>
         <input type="checkbox" data-action="toggle-item" ${item.done ? "checked" : ""}>
         <input class="item-text" data-action="edit-item" value="${escapeHTML(item.text)}" aria-label="Checklist item">
         <button class="icon-ghost" data-action="delete-item" title="Delete item">×</button>
@@ -587,6 +622,20 @@ function renderLists() {
 
 // ---------------- Day notes ----------------
 
+function renderDayStatsEditor() {
+  const stats = editingDayStatsDraft;
+
+  dayStatsList.innerHTML = stats.length
+    ? stats.map(stat => `
+        <div class="day-stat-row" data-stat-id="${stat.id}">
+          <input class="day-stat-label" value="${escapeHTML(stat.label || "")}" placeholder="Stat name" aria-label="Stat name">
+          <input class="day-stat-value" value="${escapeHTML(stat.value || "")}" placeholder="Value" aria-label="Stat value">
+          <button type="button" class="icon-ghost delete-day-stat" title="Delete stat">×</button>
+        </div>
+      `).join("")
+    : `<p class="empty-day-stats">No stats yet. Add anything useful for this date.</p>`;
+}
+
 function openDayNote(dateKey) {
   editingNoteDate = dateKey;
   const date = parseISO(dateKey);
@@ -594,6 +643,8 @@ function openDayNote(dateKey) {
     weekday: "long", month: "long", day: "numeric", year: "numeric"
   });
   dayNoteText.value = state.dayNotes[dateKey] || "";
+  editingDayStatsDraft = clone(Array.isArray(state.dayStats[dateKey]) ? state.dayStats[dateKey] : []);
+  renderDayStatsEditor();
   dayNoteDialog.showModal();
   setTimeout(() => dayNoteText.focus(), 0);
 }
@@ -666,6 +717,21 @@ async function refreshImages() {
     : "No images uploaded on this device.";
   slideshowIndex = 0;
   applyBackground();
+}
+
+function applyInterfaceColors() {
+  const a = state.appearance;
+  const isDark = state.theme === "dark";
+  const text = isDark ? a.darkTextColor : a.lightTextColor;
+  const panel = isDark ? a.darkPanelColor : a.lightPanelColor;
+
+  document.documentElement.style.setProperty("--text", text);
+  document.documentElement.style.setProperty("--panel", colorWithAlpha(panel, 0.94));
+
+  lightTextColor.value = a.lightTextColor;
+  lightPanelColor.value = a.lightPanelColor;
+  darkTextColor.value = a.darkTextColor;
+  darkPanelColor.value = a.darkPanelColor;
 }
 
 function applyBackground() {
@@ -1165,6 +1231,12 @@ tracker.addEventListener("click", e => {
     return;
   }
 
+  const dayHeader = e.target.closest("[data-day-detail]");
+  if (dayHeader) {
+    openDayNote(dayHeader.dataset.dayDetail);
+    return;
+  }
+
   const cell = e.target.closest(".complete-cell");
   if (cell) {
     const habit = state.habits.find(h => h.id === cell.dataset.habit);
@@ -1182,6 +1254,8 @@ tracker.addEventListener("click", e => {
     editingHabitId = habit.id;
     habitName.value = habit.name;
     habitColor.value = habit.color;
+    habitLabelBackground.value = habit.labelBackground || "#ffffff";
+    habitTextColor.value = habit.labelTextColor || "#171717";
     dialogTitle.textContent = "Edit Habit";
     habitDialog.showModal();
     return;
@@ -1202,6 +1276,8 @@ $("addHabitBtn").addEventListener("click", () => {
   editingHabitId = null;
   habitName.value = "";
   habitColor.value = "#22c55e";
+  habitLabelBackground.value = "#ffffff";
+  habitTextColor.value = "#171717";
   dialogTitle.textContent = "New Habit";
   habitDialog.showModal();
   setTimeout(() => habitName.focus(), 0);
@@ -1218,8 +1294,17 @@ habitForm.addEventListener("submit", e => {
     const habit = state.habits.find(h => h.id === editingHabitId);
     habit.name = name;
     habit.color = habitColor.value;
+    habit.labelBackground = habitLabelBackground.value;
+    habit.labelTextColor = habitTextColor.value;
   } else {
-    state.habits.push({ id: crypto.randomUUID(), name, color: habitColor.value, completions: {} });
+    state.habits.push({
+      id: crypto.randomUUID(),
+      name,
+      color: habitColor.value,
+      labelBackground: habitLabelBackground.value,
+      labelTextColor: habitTextColor.value,
+      completions: {}
+    });
   }
 
   saveState();
@@ -1229,18 +1314,58 @@ habitForm.addEventListener("submit", e => {
 
 $("closeDayNoteBtn").addEventListener("click", () => dayNoteDialog.close());
 
+$("addDayStatBtn").addEventListener("click", () => {
+  if (!editingNoteDate) return;
+  editingDayStatsDraft.push({
+    id: crypto.randomUUID(),
+    label: "",
+    value: ""
+  });
+  renderDayStatsEditor();
+  const rows = dayStatsList.querySelectorAll(".day-stat-row");
+  rows[rows.length - 1]?.querySelector(".day-stat-label")?.focus();
+});
+
+dayStatsList.addEventListener("input", e => {
+  const row = e.target.closest(".day-stat-row");
+  if (!row || !editingNoteDate) return;
+  const stat = editingDayStatsDraft.find(s => s.id === row.dataset.statId);
+  if (!stat) return;
+  if (e.target.classList.contains("day-stat-label")) stat.label = e.target.value;
+  if (e.target.classList.contains("day-stat-value")) stat.value = e.target.value;
+});
+
+dayStatsList.addEventListener("click", e => {
+  const deleteBtn = e.target.closest(".delete-day-stat");
+  if (!deleteBtn || !editingNoteDate) return;
+  const row = deleteBtn.closest(".day-stat-row");
+  editingDayStatsDraft = editingDayStatsDraft
+    .filter(stat => stat.id !== row.dataset.statId);
+  renderDayStatsEditor();
+});
+
 $("dayNoteForm").addEventListener("submit", e => {
   e.preventDefault();
   const value = dayNoteText.value.trim();
   if (value) state.dayNotes[editingNoteDate] = value;
   else delete state.dayNotes[editingNoteDate];
+
+  const cleanedStats = editingDayStatsDraft.filter(stat =>
+    String(stat.label || "").trim() || String(stat.value || "").trim()
+  );
+  if (cleanedStats.length) state.dayStats[editingNoteDate] = cleanedStats;
+  else delete state.dayStats[editingNoteDate];
+
   saveState();
   dayNoteDialog.close();
   renderTracker();
 });
 
 $("deleteDayNoteBtn").addEventListener("click", () => {
-  if (editingNoteDate) delete state.dayNotes[editingNoteDate];
+  if (editingNoteDate) {
+    delete state.dayNotes[editingNoteDate];
+    delete state.dayStats[editingNoteDate];
+  }
   saveState();
   dayNoteText.value = "";
   dayNoteDialog.close();
@@ -1472,6 +1597,65 @@ listsGrid.addEventListener("keydown", e => {
   }
 });
 
+let reminderDrag = null;
+
+listsGrid.addEventListener("pointerdown", e => {
+  const handle = e.target.closest(".drag-handle");
+  if (!handle) return;
+
+  const row = handle.closest(".list-item");
+  const card = handle.closest(".list-card");
+  if (!row || !card) return;
+
+  e.preventDefault();
+  handle.setPointerCapture?.(e.pointerId);
+  reminderDrag = {
+    pointerId: e.pointerId,
+    handle,
+    row,
+    card,
+    listId: card.dataset.listId
+  };
+  row.classList.add("dragging");
+  document.body.classList.add("reordering-reminder");
+});
+
+listsGrid.addEventListener("pointermove", e => {
+  if (!reminderDrag || e.pointerId !== reminderDrag.pointerId) return;
+  e.preventDefault();
+
+  const target = document.elementFromPoint(e.clientX, e.clientY)?.closest(".list-item");
+  if (!target || target === reminderDrag.row) return;
+  if (target.closest(".list-card") !== reminderDrag.card) return;
+
+  const rect = target.getBoundingClientRect();
+  const before = e.clientY < rect.top + rect.height / 2;
+  target.parentNode.insertBefore(reminderDrag.row, before ? target : target.nextSibling);
+});
+
+function finishReminderDrag(e) {
+  if (!reminderDrag || (e?.pointerId != null && e.pointerId !== reminderDrag.pointerId)) return;
+
+  const { row, card, listId, handle } = reminderDrag;
+  row.classList.remove("dragging");
+  document.body.classList.remove("reordering-reminder");
+
+  try { handle.releasePointerCapture?.(reminderDrag.pointerId); } catch {}
+
+  const list = state.lists.find(l => l.id === listId);
+  if (list) {
+    const order = [...card.querySelectorAll(".list-item")].map(el => el.dataset.itemId);
+    const byId = new Map(list.items.map(item => [item.id, item]));
+    list.items = order.map(id => byId.get(id)).filter(Boolean);
+    saveState();
+  }
+
+  reminderDrag = null;
+}
+
+listsGrid.addEventListener("pointerup", finishReminderDrag);
+listsGrid.addEventListener("pointercancel", finishReminderDrag);
+
 // Theme + settings
 themeToggle.addEventListener("click", () => {
   state.theme = state.theme === "dark" ? "light" : "dark";
@@ -1479,22 +1663,24 @@ themeToggle.addEventListener("click", () => {
   render();
 });
 
-$("settingsBtn").addEventListener("click", () => {
+function openSettingsPanel() {
   settingsPanel.classList.add("open");
   settingsPanel.setAttribute("aria-hidden", "false");
   document.body.classList.add("settings-open");
-});
+}
 
-$("closeSettingsBtn").addEventListener("click", () => {
+function closeSettingsPanel() {
   settingsPanel.classList.remove("open");
   settingsPanel.setAttribute("aria-hidden", "true");
   document.body.classList.remove("settings-open");
-});
+}
+
+$("settingsBtn").addEventListener("click", openSettingsPanel);
+$("closeSettingsBtn").addEventListener("click", closeSettingsPanel);
+$("closeSettingsBottomBtn").addEventListener("click", closeSettingsPanel);
 
 $("driveQuickBtn").addEventListener("click", () => {
-  settingsPanel.classList.add("open");
-  settingsPanel.setAttribute("aria-hidden", "false");
-  document.body.classList.add("settings-open");
+  openSettingsPanel();
   settingsPanel.scrollTop = 0;
   setTimeout(() => {
     const driveSection = $("workerAccessKey");
@@ -1551,6 +1737,28 @@ $("clearImagesBtn").addEventListener("click", async () => {
   state.appearance.backgroundMode = "color";
   saveState();
   await refreshImages();
+});
+
+[
+  [lightTextColor, "lightTextColor"],
+  [lightPanelColor, "lightPanelColor"],
+  [darkTextColor, "darkTextColor"],
+  [darkPanelColor, "darkPanelColor"]
+].forEach(([input, key]) => {
+  input.addEventListener("input", () => {
+    state.appearance[key] = input.value;
+    saveState();
+    applyInterfaceColors();
+  });
+});
+
+$("resetInterfaceColorsBtn").addEventListener("click", () => {
+  state.appearance.lightTextColor = "#171717";
+  state.appearance.lightPanelColor = "#ffffff";
+  state.appearance.darkTextColor = "#f3f7ff";
+  state.appearance.darkPanelColor = "#111f34";
+  saveState();
+  applyInterfaceColors();
 });
 
 // Cloudflare auth helper / Google Drive actions
@@ -1681,8 +1889,6 @@ refreshImages().catch(() => applyBackground());
 
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && settingsPanel.classList.contains("open")) {
-    settingsPanel.classList.remove("open");
-    settingsPanel.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("settings-open");
+    closeSettingsPanel();
   }
 });

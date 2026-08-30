@@ -1,5 +1,5 @@
 
-const CACHE = "habit-dashboard-v5-4-ios-close-button";
+const CACHE = "habit-dashboard-v6";
 const CORE = [
   "./",
   "./index.html",

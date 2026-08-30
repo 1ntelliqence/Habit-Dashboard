@@ -1,7 +1,7 @@
 {
   "name": "Habit Dashboard",
   "short_name": "Habits",
-  "description": "Local-first habit tracker, journal, notes, and checklists with encrypted journal and Google Drive sync.",
+  "description": "Local-first habit tracker, journal, day details, reorderable lists, and Google Drive sync.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0b1627",

@@ -395,3 +395,247 @@ body.settings-open {
     touch-action: manipulation;
   }
 }
+
+
+/* =========================
+   Habit Dashboard v6
+   ========================= */
+
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(90px, 1fr));
+  gap: 12px;
+}
+.settings-color-grid {
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+}
+.color-grid label {
+  min-width: 0;
+}
+.color-grid input[type="color"],
+.settings-panel input[type="color"] {
+  width: 100%;
+  min-width: 64px;
+  height: 44px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--soft);
+}
+
+/* A whole date header is now a day-details target. */
+.day-detail-trigger {
+  cursor: pointer;
+}
+.day-detail-trigger:hover {
+  background: var(--soft);
+}
+
+/* Day details / custom stats */
+.day-details-dialog {
+  width: min(620px, calc(100vw - 24px));
+}
+.day-detail-label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.day-stats-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.day-stats-head h3 {
+  margin: 0;
+}
+.day-stats-head p,
+.empty-day-stats {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 4px 0 0;
+}
+.day-stats-list {
+  display: grid;
+  gap: 8px;
+}
+.day-stat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.day-stat-row input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Reminder reordering */
+.list-item {
+  grid-template-columns: auto auto 1fr auto;
+}
+.drag-handle {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: grab;
+  padding: 6px 5px;
+  border-radius: 7px;
+  font-weight: 800;
+  letter-spacing: -3px;
+  touch-action: none;
+  user-select: none;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+.list-item.dragging {
+  opacity: .6;
+  outline: 1px dashed var(--accent);
+  border-radius: 9px;
+  background: var(--soft);
+}
+body.reordering-reminder {
+  user-select: none;
+}
+
+/* Reliable second close control for iOS. */
+.settings-done-wrap {
+  position: sticky;
+  bottom: 0;
+  z-index: 35;
+  padding:
+    14px
+    0
+    calc(6px + var(--safe-bottom));
+  margin-top: 24px;
+  background: linear-gradient(to bottom, transparent, var(--panel) 28%);
+}
+.settings-done-btn {
+  width: 100%;
+  min-height: 48px;
+}
+
+/* Sticky habit names + streak data around a horizontally scrolling date grid. */
+@media (max-width: 1100px) {
+  .tracker-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sticky-habit {
+    position: sticky;
+    left: 0;
+    z-index: 12;
+    box-shadow: 7px 0 12px -12px rgba(0,0,0,.65);
+  }
+
+  .stats-head,
+  .stats-cell {
+    position: sticky;
+    z-index: 11;
+    background: var(--panel);
+  }
+
+  .stat-total {
+    right: 0;
+  }
+
+  .stat-longest {
+    right: 86px;
+  }
+
+  .stat-current {
+    right: 172px;
+  }
+
+  .stats-head {
+    z-index: 14;
+  }
+}
+
+@media (max-width: 700px) {
+  /*
+    Keep enough room for one date column while the habit name stays left
+    and all three streak/stat columns stay visible on the right.
+  */
+  .tracker {
+    grid-template-columns:
+      145px
+      repeat(10, 68px)
+      repeat(3, 52px) !important;
+    min-width: 981px;
+  }
+
+  .habit-head {
+    padding: 10px 8px;
+  }
+
+  .habit-title {
+    font-size: 14px;
+  }
+
+  .row-actions {
+    gap: 1px;
+  }
+
+  .row-actions button {
+    padding: 4px;
+  }
+
+  .stats-head,
+  .stats-cell {
+    min-width: 52px;
+    width: 52px;
+    padding: 5px 2px;
+    font-size: 8px;
+    line-height: 1.15;
+  }
+
+  .stats-cell strong {
+    font-size: 15px;
+  }
+
+  .stat-total {
+    right: 0;
+  }
+
+  .stat-longest {
+    right: 52px;
+  }
+
+  .stat-current {
+    right: 104px;
+  }
+
+  .sticky-habit {
+    width: 145px;
+    min-width: 145px;
+  }
+
+  .day-stat-row {
+    grid-template-columns: 1fr 1fr auto;
+  }
+
+  .color-grid,
+  .settings-color-grid {
+    grid-template-columns: repeat(2, minmax(100px, 1fr));
+  }
+
+  /*
+    The top X remains available, but the full-width Done button at the
+    bottom is the dependable iPhone escape hatch.
+  */
+  #closeSettingsBtn {
+    margin-top: 16px;
+  }
+}

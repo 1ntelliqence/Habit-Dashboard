@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1627" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Habits" />
@@ -16,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=5.4" />
+  <link rel="stylesheet" href="styles.css?v=6" />
 </head>
 <body>
   <div id="backgroundLayer" class="background-layer"></div>
@@ -108,10 +109,21 @@
         Habit name
         <input id="habitName" maxlength="80" required placeholder="e.g. Study Korean for 15 min" />
       </label>
-      <label>
-        Habit color
-        <input id="habitColor" type="color" value="#22c55e" />
-      </label>
+      <div class="color-grid">
+        <label>
+          Completion color
+          <input id="habitColor" type="color" value="#22c55e" />
+        </label>
+        <label>
+          Habit background
+          <input id="habitLabelBackground" type="color" value="#ffffff" />
+        </label>
+        <label>
+          Habit text
+          <input id="habitTextColor" type="color" value="#171717" />
+        </label>
+      </div>
+      <p class="setting-note">Completion color still gets progressively more saturated as your streak grows.</p>
       <div class="dialog-actions">
         <button type="button" id="cancelHabitBtn" class="secondary">Cancel</button>
         <button type="submit" class="primary">Save</button>
@@ -119,20 +131,35 @@
     </form>
   </dialog>
 
-  <!-- Day note -->
-  <dialog id="dayNoteDialog">
+  <!-- Day details -->
+  <dialog id="dayNoteDialog" class="day-details-dialog">
     <form id="dayNoteForm">
       <div class="note-dialog-head">
         <div>
-          <h2>Day Note</h2>
+          <h2>Day Details</h2>
           <p id="dayNoteDate"></p>
         </div>
         <button id="closeDayNoteBtn" type="button" class="icon-btn">×</button>
       </div>
-      <textarea id="dayNoteText" class="note-text" placeholder="Anything notable about this day?"></textarea>
+
+      <label class="day-detail-label">
+        Notes
+        <textarea id="dayNoteText" class="note-text" placeholder="Quick notes about this specific day..."></textarea>
+      </label>
+
+      <div class="day-stats-head">
+        <div>
+          <h3>Stats</h3>
+          <p>Add anything you want to remember: mood, sleep, steps, water, spending, etc.</p>
+        </div>
+        <button id="addDayStatBtn" type="button" class="secondary compact">+ Add Stat</button>
+      </div>
+
+      <div id="dayStatsList" class="day-stats-list"></div>
+
       <div class="dialog-actions">
-        <button type="button" id="deleteDayNoteBtn" class="secondary danger-text">Clear note</button>
-        <button type="submit" class="primary">Save note</button>
+        <button type="button" id="deleteDayNoteBtn" class="secondary danger-text">Clear day details</button>
+        <button type="submit" class="primary">Save details</button>
       </div>
     </form>
   </dialog>
@@ -249,6 +276,30 @@
     </div>
 
     <div class="setting-group">
+      <h3>Interface Colors</h3>
+      <p class="setting-note">Tune text and panel colors separately for light and dark mode if a background makes things hard to read.</p>
+      <div class="color-grid settings-color-grid">
+        <label>
+          Light text
+          <input id="lightTextColor" type="color" value="#171717" />
+        </label>
+        <label>
+          Light panels
+          <input id="lightPanelColor" type="color" value="#ffffff" />
+        </label>
+        <label>
+          Dark text
+          <input id="darkTextColor" type="color" value="#f3f7ff" />
+        </label>
+        <label>
+          Dark panels
+          <input id="darkPanelColor" type="color" value="#111f34" />
+        </label>
+      </div>
+      <button id="resetInterfaceColorsBtn" class="secondary" type="button">Reset interface colors</button>
+    </div>
+
+    <div class="setting-group">
       <div class="setting-title-row">
         <h3>Journal Security</h3>
         <span id="vaultStatusBadge" class="badge">Off</span>
@@ -288,8 +339,12 @@
 
       <p id="driveStatusText" class="setting-note">Paste the same device access key on each of your devices once.</p>
     </div>
+
+    <div class="settings-done-wrap">
+      <button id="closeSettingsBottomBtn" class="primary settings-done-btn" type="button">Done</button>
+    </div>
   </aside>
 
-  <script src="app.js?v=5.3"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
