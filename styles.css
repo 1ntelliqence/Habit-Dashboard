@@ -639,3 +639,221 @@ body.reordering-reminder {
     margin-top: 16px;
   }
 }
+
+
+/* =========================
+   v6.1 mobile layout cleanup
+   ========================= */
+@media (max-width: 700px) {
+  body {
+    padding:
+      calc(10px + var(--safe-top))
+      calc(10px + var(--safe-right))
+      calc(10px + var(--safe-bottom))
+      calc(10px + var(--safe-left));
+  }
+
+  /* Give the title its own row instead of squeezing it beside Drive/Customize. */
+  .topbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .topbar h1 {
+    font-size: 29px;
+    line-height: 1.02;
+    white-space: nowrap;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 7px;
+  }
+
+  .header-actions .secondary,
+  .header-actions .icon-btn {
+    padding: 9px 12px;
+  }
+
+  .toolbar {
+    gap: 8px;
+  }
+
+  .toolbar .nav {
+    gap: 6px;
+  }
+
+  .toolbar .primary {
+    padding-inline: 12px;
+  }
+
+  /*
+    Mobile tracker:
+    105px sticky habit label
+    30px x 3 sticky stats
+    58px date cells scrolling through the middle.
+
+    On a typical ~360px CSS viewport this leaves ~145px for dates,
+    so you can see ~2.5 days while BOTH the habit and streak data stay visible.
+  */
+  .tracker {
+    grid-template-columns:
+      105px
+      repeat(10, 58px)
+      repeat(3, 30px) !important;
+    min-width: 775px;
+  }
+
+  .cell {
+    min-height: 78px;
+  }
+
+  .date-head {
+    min-height: 78px;
+    padding: 6px 2px;
+    font-size: 9px;
+  }
+
+  .date-head strong {
+    font-size: 18px;
+  }
+
+  .note-toggle {
+    margin-top: 1px;
+    padding: 2px 4px;
+    font-size: 13px;
+  }
+
+  .sticky-habit {
+    width: 105px;
+    min-width: 105px;
+    left: 0;
+    z-index: 20;
+  }
+
+  .habit-head {
+    padding: 7px 6px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .habit-title {
+    display: block;
+    width: 100%;
+    font-size: 11.5px;
+    line-height: 1.14;
+    overflow-wrap: anywhere;
+  }
+
+  .row-actions {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 2px;
+  }
+
+  .row-actions button {
+    font-size: 11px;
+    padding: 2px 4px;
+  }
+
+  .complete-cell .check {
+    width: 21px;
+    height: 21px;
+  }
+
+  .stats-head,
+  .stats-cell {
+    min-width: 30px;
+    width: 30px;
+    padding: 3px 1px;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+  }
+
+  .stats-head {
+    font-size: 0;
+    line-height: 1;
+    z-index: 22;
+  }
+
+  .stats-head::after {
+    display: block;
+    font-size: 7px;
+    line-height: 1.05;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: -.02em;
+  }
+
+  .stats-head.stat-current::after {
+    content: "Cur";
+  }
+
+  .stats-head.stat-longest::after {
+    content: "Best";
+  }
+
+  .stats-head.stat-total::after {
+    content: "Total";
+  }
+
+  .stats-cell strong {
+    font-size: 13px;
+  }
+
+  .stat-total {
+    right: 0;
+  }
+
+  .stat-longest {
+    right: 30px;
+  }
+
+  .stat-current {
+    right: 60px;
+    box-shadow: -7px 0 12px -12px rgba(0,0,0,.7);
+  }
+
+  /* Keep the sticky rails opaque over the scrolling dates. */
+  .stats-head,
+  .stats-cell,
+  .sticky-habit {
+    background-clip: padding-box;
+  }
+
+  /*
+    Journal header no longer clips the next arrow on narrow phones.
+    Put the navigation beneath the title instead.
+  */
+  .journal-card .section-heading {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .journal-card .journal-date-nav {
+    justify-content: flex-start;
+  }
+
+  .journal-card h2 {
+    font-size: 25px;
+  }
+
+  .journal-meta {
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  /* Lists section gets the same breathing room. */
+  .lists-section > .section-heading {
+    align-items: center;
+    gap: 10px;
+  }
+}
