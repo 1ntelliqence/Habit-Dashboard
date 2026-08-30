@@ -298,14 +298,22 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
   top: 0;
   right: 0;
   width: min(430px, 94vw);
-  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   background: var(--panel);
   border-left: 1px solid var(--line);
   box-shadow: -18px 0 55px rgba(0,0,0,.18);
-  padding: 22px;
+  padding:
+    calc(22px + var(--safe-top))
+    calc(22px + var(--safe-right))
+    calc(22px + var(--safe-bottom))
+    22px;
   transform: translateX(105%);
   transition: transform .25s ease;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   backdrop-filter: blur(20px);
 }
 .settings-panel.open { transform: translateX(0); }
@@ -338,6 +346,10 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 }
 
 @media (max-width: 700px) {
+  .settings-panel {
+    width: 100vw;
+    border-left: 0;
+  }
   body {
     padding:
       calc(12px + var(--safe-top))
@@ -353,4 +365,33 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
   .tracker-wrap { border-radius: 12px; }
   .journal-card { padding: 16px; }
   .lists-grid { grid-template-columns: 1fr; }
+}
+
+body.settings-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+
+/* iOS safe-area refinement for the Customize/Drive drawer */
+@media (max-width: 700px) {
+  .settings-head {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    margin: 12px 0 20px;
+    padding: 12px 0 14px;
+    background: var(--panel);
+  }
+
+  #closeSettingsBtn {
+    align-self: flex-start;
+    margin-top: 10px;
+    margin-right: 4px;
+    min-width: 48px;
+    min-height: 48px;
+    display: grid;
+    place-items: center;
+    touch-action: manipulation;
+  }
 }
