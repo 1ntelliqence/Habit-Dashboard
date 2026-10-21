@@ -1,5 +1,5 @@
 
-const CACHE = "habit-dashboard-v6-1-1-css-link-fix";
+const CACHE = "habit-dashboard-v6-1-2-oauth-repair";
 const CORE = [
   "./",
   "./index.html",

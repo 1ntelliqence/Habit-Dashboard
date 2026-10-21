@@ -873,10 +873,18 @@ async function authorizeGoogleDrive() {
     const status = await checkWorkerStatus();
 
     if (status.connected) {
-      setDriveStatus("Google Drive is already authorized. Syncing...");
-      await getWorkerAccessToken();
-      await smartSync();
-      return;
+      setDriveStatus("Checking existing Google Drive authorization...");
+      try {
+        await getWorkerAccessToken();
+        await smartSync();
+        return;
+      } catch (error) {
+        // The Worker can still have an old refresh token recorded even after
+        // Google has expired/revoked it. Keep this device paired and start a
+        // fresh OAuth flow instead of treating that as a bad device key.
+        googleAccessToken = "";
+        setDriveStatus("Google authorization expired. Reconnecting...");
+      }
     }
 
     const data = await workerRequest("/oauth/start", {
@@ -910,13 +918,23 @@ async function pairThisDevice() {
     renderDriveControls();
 
     if (status.connected) {
-      setDriveStatus("Device paired. Google Drive is already authorized — syncing now...");
-      await getWorkerAccessToken();
-      await smartSync();
+      setDriveStatus("Device paired. Checking Google Drive authorization...");
+      try {
+        await getWorkerAccessToken();
+        await smartSync();
+      } catch (error) {
+        // A stale Google refresh token should not unpair the device. The key
+        // was already accepted by /status, so keep it and let the user renew
+        // Google authorization separately.
+        googleAccessToken = "";
+        renderDriveControls();
+        setDriveStatus("Device paired. Google authorization needs to be renewed — tap Authorize Google Drive.");
+      }
     } else {
       setDriveStatus("Device paired. Tap Authorize Google Drive once to finish the initial setup.");
     }
   } catch (error) {
+    // Only an actual pairing/status failure clears the saved device key.
     localConfig.workerAccessKey = "";
     saveLocalConfig();
     renderDriveControls();
