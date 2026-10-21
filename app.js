@@ -11,7 +11,7 @@ const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const DRIVE_FOLDER_NAME = "Habit Dashboard";
 const DRIVE_DATA_FILE = "habit-dashboard-data.json";
 const DRIVE_BACKUP_FOLDER = "Backups";
-const AUTH_WORKER_URL = "https://habit-dashboard-auth.tfranklinvanrossum1.workers.dev";
+const AUTH_WORKER_URL = "https://auth.1ntellabs.bar";
 
 const defaultState = {
   habits: [
